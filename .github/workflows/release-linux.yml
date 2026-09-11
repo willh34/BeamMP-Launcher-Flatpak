@@ -1,0 +1,87 @@
+name: Linux Release
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - 'src/**'
+      - 'include/**'
+      - 'CMakeLists.txt'
+      - '.gitmodules'
+      - 'com.beammp.Launcher.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  flatpak-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+          fetch-depth: 0
+
+      # ------------------------------------------------------------------ #
+      # Determine version / tag                                              #
+      # ------------------------------------------------------------------ #
+      - name: Generate release tag
+        id: tag
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LATEST_TAG" ]; then
+            echo "tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
+            echo "release_name=BeamMP Launcher ${LATEST_TAG}" >> $GITHUB_OUTPUT
+          else
+            TS=$(date -u +'%Y%m%d-%H%M%S')
+            echo "tag=build-${TS}" >> $GITHUB_OUTPUT
+            echo "release_name=BeamMP Launcher build-${TS}" >> $GITHUB_OUTPUT
+          fi
+
+      # ------------------------------------------------------------------ #
+      # Build Flatpak bundle                                                 #
+      # Uses system packages (curl, openssl, zlib) from the freedesktop SDK #
+      # and builds nlohmann-json / cpp-httplib as manifest modules,         #
+      # avoiding vcpkg inside the sandbox entirely.                          #
+      # ------------------------------------------------------------------ #
+      - name: Build Flatpak bundle
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: BeamMP-Launcher.flatpak
+          manifest-path: com.beammp.Launcher.yml
+          cache-key: flatpak-builder-${{ github.sha }}
+
+      # ------------------------------------------------------------------ #
+      # Publish GitHub Release                                               #
+      # ------------------------------------------------------------------ #
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.release_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: BeamMP-Launcher.flatpak
+          body: |
+            ## Linux Flatpak Release
+
+            Built from commit `${{ github.sha }}` on `${{ github.ref_name }}`.
+
+            Works with both system Steam and the Flatpak version of Steam.
+
+            ### Installation
+            1. Download `BeamMP-Launcher.flatpak` below.
+            2. Install it:
+               ```bash
+               flatpak install BeamMP-Launcher.flatpak
+               ```
+            3. Run it:
+               ```bash
+               flatpak run com.beammp.Launcher
+               ```

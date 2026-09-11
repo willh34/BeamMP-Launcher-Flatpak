@@ -174,9 +174,17 @@ void StartGame(std::wstring Dir) {
 }
 #elif defined(__linux__)
 void StartGame(std::string Dir) {
-    std::string filename = (Dir + "/BinLinux/BeamNG.drive.x64");
+    std::string gameExecutable = Dir + "/BinLinux/BeamNG.drive.x64";
+    // When running inside a Flatpak sandbox, use flatpak-spawn to launch
+    // the game on the host so it inherits the correct Steam environment.
+    const bool inFlatpak = (std::getenv("FLATPAK_ID") != nullptr);
+    std::string filename = inFlatpak ? "/usr/bin/flatpak-spawn" : gameExecutable;
     std::vector<const char*> argv;
     argv.push_back(filename.data());
+    if (inFlatpak) {
+        argv.push_back("--host");
+        argv.push_back(gameExecutable.data());
+    }
     for (int i = 0; i < options.game_arguments_length; i++) {
         argv.push_back(options.game_arguments[i]);
     }
