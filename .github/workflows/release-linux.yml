@@ -49,6 +49,13 @@ jobs:
       # and builds nlohmann-json / cpp-httplib as manifest modules,         #
       # avoiding vcpkg inside the sandbox entirely.                          #
       # ------------------------------------------------------------------ #
+      - name: Install Flatpak tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          sudo flatpak remote-add --if-not-exists flathub \
+            https://dl.flathub.org/repo/flathub.flatpakrepo
+
       - name: Build Flatpak bundle
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
