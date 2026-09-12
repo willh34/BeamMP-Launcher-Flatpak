@@ -59,8 +59,8 @@ jobs:
           # flatpak-builder doesn't hit permission errors trying to do it
           # itself as a non-root user.
           sudo flatpak install -y --system --noninteractive flathub \
-            org.freedesktop.Platform//24.08 \
-            org.freedesktop.Sdk//24.08
+            org.gnome.Platform//50 \
+            org.gnome.Sdk//50
 
       - name: Build Flatpak bundle
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
