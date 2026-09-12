@@ -5,5 +5,6 @@
     <file alias="beamng-logo.svg">assets/beamng-logo.svg</file>
     <!-- Official BeamMP logo -->
     <file alias="beammp-logo.png">assets/beammp-logo.png</file>
+    <file alias="launcher-icon.png">assets/com.beammp.Launcher.png</file>
   </gresource>
 </gresources>

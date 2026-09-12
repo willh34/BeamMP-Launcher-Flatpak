@@ -59,13 +59,14 @@ if (UNIX AND NOT APPLE)
                 ${CMAKE_CURRENT_SOURCE_DIR}/data/resources.gresource.xml
                 ${CMAKE_CURRENT_SOURCE_DIR}/assets/beamng-logo.svg
                 ${CMAKE_CURRENT_SOURCE_DIR}/assets/beammp-logo.png
+                ${CMAKE_CURRENT_SOURCE_DIR}/assets/com.beammp.Launcher.png
         VERBATIM)
     target_sources(${PROJECT_NAME} PRIVATE ${GRESOURCE_C})
 
     install(FILES data/com.beammp.Launcher.desktop
         DESTINATION share/applications)
-    # Scalable SVG icon for the app menu / .desktop Icon field
-    install(FILES data/com.beammp.Launcher.svg
-        DESTINATION share/icons/hicolor/scalable/apps)
+    # Scalable PNG icon for the app menu / .desktop Icon field
+    install(FILES assets/com.beammp.Launcher.png
+        DESTINATION share/icons/hicolor/512x512/apps)
 
 endif()

@@ -129,7 +129,14 @@ static gboolean cb_show_running_indicator(gpointer) {
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    s_tray_icon = gtk_status_icon_new_from_icon_name("com.beammp.Launcher");
+    GError* err = nullptr;
+    GdkPixbuf* pb = gdk_pixbuf_new_from_resource("/com/beammp/Launcher/launcher-icon.png", &err);
+    if (pb) {
+        s_tray_icon = gtk_status_icon_new_from_pixbuf(pb);
+        g_object_unref(pb);
+    } else {
+        s_tray_icon = gtk_status_icon_new_from_icon_name("com.beammp.Launcher");
+    }
     gtk_status_icon_set_tooltip_text(s_tray_icon, "BeamMP Launcher");
     g_signal_connect(s_tray_icon, "popup-menu", G_CALLBACK(cb_tray_popup), nullptr);
 #pragma GCC diagnostic pop
@@ -147,7 +154,14 @@ static void on_activate(GtkApplication* app, gpointer user_data) {
     gtk_window_set_title(GTK_WINDOW(s_window), "BeamMP Launcher");
     gtk_window_set_resizable(GTK_WINDOW(s_window), FALSE);
     gtk_window_set_default_size(GTK_WINDOW(s_window), 440, 120);
-    gtk_window_set_icon_name(GTK_WINDOW(s_window), "com.beammp.Launcher");
+    GError* err = nullptr;
+    GdkPixbuf* pb = gdk_pixbuf_new_from_resource("/com/beammp/Launcher/launcher-icon.png", &err);
+    if (pb) {
+        gtk_window_set_icon(GTK_WINDOW(s_window), pb);
+        g_object_unref(pb);
+    } else {
+        gtk_window_set_icon_name(GTK_WINDOW(s_window), "com.beammp.Launcher");
+    }
     g_signal_connect(s_window, "delete-event", G_CALLBACK(+[](GtkWidget*, GdkEvent*, gpointer) -> gboolean { return TRUE; }), nullptr);
 
     GtkCssProvider* css = gtk_css_provider_new();
