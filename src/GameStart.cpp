@@ -169,8 +169,7 @@ void StartGame(std::wstring Dir) {
 
         error("Failed to Launch the game! launcher closing soon. " + err);
     }
-    std::this_thread::sleep_for(std::chrono::seconds(5));
-    exit(2);
+
 }
 #elif defined(__linux__)
 void StartGame(std::string Dir) {
@@ -219,8 +218,7 @@ void StartGame(std::string Dir) {
         error("Game Closed! launcher closing soon");
     }
 
-    std::this_thread::sleep_for(std::chrono::seconds(5));
-    exit(2);
+
 }
 #endif
 

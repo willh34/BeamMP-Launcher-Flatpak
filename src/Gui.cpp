@@ -152,10 +152,10 @@ static void on_activate(GtkApplication* app, gpointer user_data) {
 
     GtkCssProvider* css = gtk_css_provider_new();
     gtk_css_provider_load_from_data(css,
-        "window { background-color: #1a1a2e; } "
-        ".bmp-status { color: #d0d0f0; font-size: 11pt; font-weight: bold; } "
-        ".bmp-progress trough { background-color: #2d2d4e; border-radius: 4px; min-height: 8px; } "
-        ".bmp-progress progress { background-color: #6d28d9; border-radius: 4px; }", -1, nullptr);
+        "window { background-color: #181818; } "
+        ".bmp-status { color: #eeeeee; font-size: 11pt; font-weight: bold; } "
+        ".bmp-progress trough { background-color: #333333; border-radius: 4px; min-height: 8px; } "
+        ".bmp-progress progress { background-color: #f26d21; border-radius: 4px; }", -1, nullptr);
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(), GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
     g_object_unref(css);
 
