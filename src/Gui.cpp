@@ -10,7 +10,6 @@
 #include "Logger.h"
 
 #include <gtk/gtk.h>
-#include <libayatana-appindicator/app-indicator.h>
 
 #include <atomic>
 #include <condition_variable>
@@ -28,7 +27,7 @@ static GtkApplication* s_app          = nullptr;
 static GtkWidget*      s_window       = nullptr;
 static GtkWidget*      s_status_label = nullptr;
 static GtkWidget*      s_progress_bar = nullptr;
-static AppIndicator*   s_tray_icon    = nullptr;
+static GtkStatusIcon*  s_tray_icon    = nullptr;
 static guint           s_pulse_source = 0;
 static std::atomic<bool> s_enabled { false };
 
@@ -81,17 +80,25 @@ struct ErrorDialogData {
 
 static gboolean cb_show_error(gpointer data) {
     auto* ed = static_cast<ErrorDialogData*>(data);
-    GtkAlertDialog* dialog = gtk_alert_dialog_new("%s", ed->title.c_str());
-    gtk_alert_dialog_set_detail(dialog, ed->message.c_str());
+
+    GtkWidget* dlg = gtk_message_dialog_new(
+        s_window ? GTK_WINDOW(s_window) : nullptr,
+        GTK_DIALOG_MODAL,
+        GTK_MESSAGE_ERROR,
+        GTK_BUTTONS_CLOSE,
+        "%s", ed->title.c_str());
     
-    gtk_alert_dialog_choose(dialog, s_window ? GTK_WINDOW(s_window) : nullptr, nullptr, 
-        +[](GObject*, GAsyncResult*, gpointer d) {
-            auto* ed2 = static_cast<ErrorDialogData*>(d);
-            std::lock_guard lk(ed2->mtx);
-            ed2->done = true;
-            ed2->cv.notify_all();
-        }, ed);
-    g_object_unref(dialog);
+    gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dlg), "%s", ed->message.c_str());
+    
+    g_signal_connect(dlg, "response", G_CALLBACK(+[](GtkDialog* dialog, gint response_id, gpointer d) {
+        auto* ed2 = static_cast<ErrorDialogData*>(d);
+        std::lock_guard lk(ed2->mtx);
+        ed2->done = true;
+        ed2->cv.notify_all();
+        gtk_widget_destroy(GTK_WIDGET(dialog));
+    }), ed);
+
+    gtk_widget_show_all(dlg);
     return G_SOURCE_REMOVE;
 }
 
@@ -99,27 +106,34 @@ static gboolean cb_show_error(gpointer data) {
 // Tray Icon
 // ---------------------------------------------------------------------------
 
-static void tray_quit_activated(GSimpleAction*, GVariant*, gpointer) {
-    if (GamePID > 0) kill(GamePID, SIGTERM);
-    if (s_app) g_application_quit(G_APPLICATION(s_app));
-    exit(0);
+static void cb_tray_popup(GtkStatusIcon* /*status_icon*/, guint button, guint activate_time, gpointer) {
+    GtkWidget* menu = gtk_menu_new();
+    GtkWidget* quit_item = gtk_menu_item_new_with_label("Quit BeamMP");
+    g_signal_connect(quit_item, "activate", G_CALLBACK(+[](GtkMenuItem*, gpointer) {
+        if (GamePID > 0) kill(GamePID, SIGTERM);
+        if (s_app) g_application_quit(G_APPLICATION(s_app));
+        exit(0);
+    }), nullptr);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), quit_item);
+    gtk_widget_show_all(menu);
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    gtk_menu_popup(GTK_MENU(menu), nullptr, nullptr, gtk_status_icon_position_menu,
+                   s_tray_icon, button, activate_time);
+#pragma GCC diagnostic pop
 }
 
 static gboolean cb_show_running_indicator(gpointer) {
-    if (s_window) gtk_widget_set_visible(s_window, FALSE);
+    if (s_window) gtk_widget_hide(s_window);
 
-    s_tray_icon = app_indicator_new("com.beammp.Launcher", "com.beammp.Launcher", APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
-    app_indicator_set_status(s_tray_icon, APP_INDICATOR_STATUS_ACTIVE);
-    app_indicator_set_title(s_tray_icon, "BeamMP Launcher");
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    s_tray_icon = gtk_status_icon_new_from_icon_name("com.beammp.Launcher");
+    gtk_status_icon_set_tooltip_text(s_tray_icon, "BeamMP Launcher");
+    g_signal_connect(s_tray_icon, "popup-menu", G_CALLBACK(cb_tray_popup), nullptr);
+#pragma GCC diagnostic pop
 
-    GMenu* menu = g_menu_new();
-    g_menu_append(menu, "Quit BeamMP", "app.tray-quit");
-
-    GSimpleAction* quit_action = g_simple_action_new("tray-quit", nullptr);
-    g_signal_connect(quit_action, "activate", G_CALLBACK(tray_quit_activated), nullptr);
-    g_action_map_add_action(G_ACTION_MAP(s_app), G_ACTION(quit_action));
-
-    app_indicator_set_menu(s_tray_icon, (GtkMenu*)menu); 
     return G_SOURCE_REMOVE;
 }
 
@@ -134,49 +148,46 @@ static void on_activate(GtkApplication* app, gpointer user_data) {
     gtk_window_set_resizable(GTK_WINDOW(s_window), FALSE);
     gtk_window_set_default_size(GTK_WINDOW(s_window), 440, 120);
     gtk_window_set_icon_name(GTK_WINDOW(s_window), "com.beammp.Launcher");
-    g_signal_connect(s_window, "close-request", G_CALLBACK(+[](GtkWindow*, gpointer) -> gboolean { return TRUE; }), nullptr);
+    g_signal_connect(s_window, "delete-event", G_CALLBACK(+[](GtkWidget*, GdkEvent*, gpointer) -> gboolean { return TRUE; }), nullptr);
 
     GtkCssProvider* css = gtk_css_provider_new();
-    gtk_css_provider_load_from_string(css,
+    gtk_css_provider_load_from_data(css,
         "window { background-color: #1a1a2e; } "
         ".bmp-status { color: #d0d0f0; font-size: 11pt; font-weight: bold; } "
-        ".bmp-progress > trough { background-color: #2d2d4e; border-radius: 4px; min-height: 8px; } "
-        ".bmp-progress > trough > progress { background-color: #6d28d9; border-radius: 4px; }");
-    gtk_style_context_add_provider_for_display(gdk_display_get_default(), GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+        ".bmp-progress trough { background-color: #2d2d4e; border-radius: 4px; min-height: 8px; } "
+        ".bmp-progress progress { background-color: #6d28d9; border-radius: 4px; }", -1, nullptr);
+    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(), GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
     g_object_unref(css);
 
     GtkWidget* outer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 18);
     gtk_widget_set_margin_start(outer, 20); gtk_widget_set_margin_end(outer, 20);
     gtk_widget_set_margin_top(outer, 18); gtk_widget_set_margin_bottom(outer, 18);
-    gtk_window_set_child(GTK_WINDOW(s_window), outer);
+    gtk_container_add(GTK_CONTAINER(s_window), outer);
 
     GtkWidget* logo = gtk_image_new_from_resource("/com/beammp/Launcher/beamng-logo.svg");
-    gtk_image_set_pixel_size(GTK_IMAGE(logo), 68);
     gtk_widget_set_valign(logo, GTK_ALIGN_CENTER);
-    gtk_box_append(GTK_BOX(outer), logo);
+    gtk_box_pack_start(GTK_BOX(outer), logo, FALSE, FALSE, 0);
 
     GtkWidget* right = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_widget_set_valign(right, GTK_ALIGN_CENTER);
-    gtk_widget_set_hexpand(right, TRUE);
-    gtk_box_append(GTK_BOX(outer), right);
+    gtk_box_pack_start(GTK_BOX(outer), right, TRUE, TRUE, 0);
 
     s_status_label = gtk_label_new("Starting...");
-    gtk_label_set_xalign(GTK_LABEL(s_status_label), 0.0f);
-    gtk_label_set_wrap(GTK_LABEL(s_status_label), TRUE);
-    gtk_widget_add_css_class(s_status_label, "bmp-status");
-    gtk_box_append(GTK_BOX(right), s_status_label);
+    gtk_widget_set_halign(s_status_label, GTK_ALIGN_START);
+    gtk_label_set_line_wrap(GTK_LABEL(s_status_label), TRUE);
+    gtk_style_context_add_class(gtk_widget_get_style_context(s_status_label), "bmp-status");
+    gtk_box_pack_start(GTK_BOX(right), s_status_label, FALSE, FALSE, 0);
 
     s_progress_bar = gtk_progress_bar_new();
-    gtk_widget_add_css_class(s_progress_bar, "bmp-progress");
-    gtk_widget_set_hexpand(s_progress_bar, TRUE);
-    gtk_box_append(GTK_BOX(right), s_progress_bar);
+    gtk_style_context_add_class(gtk_widget_get_style_context(s_progress_bar), "bmp-progress");
+    gtk_box_pack_start(GTK_BOX(right), s_progress_bar, FALSE, FALSE, 0);
 
     s_pulse_source = g_timeout_add(80, +[](gpointer) -> gboolean {
         if (s_progress_bar) gtk_progress_bar_pulse(GTK_PROGRESS_BAR(s_progress_bar));
         return G_SOURCE_CONTINUE;
     }, nullptr);
 
-    gtk_window_present(GTK_WINDOW(s_window));
+    gtk_widget_show_all(s_window);
 
     auto* fn = static_cast<std::function<void()>*>(user_data);
     std::thread([fn]() { (*fn)(); delete fn; }).detach();
