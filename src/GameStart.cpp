@@ -214,6 +214,7 @@ void StartGame(std::string Dir) {
         error("Failed to Launch the game! launcher closing soon");
         return;
     } else {
+        GamePID = static_cast<unsigned long>(pid);
         waitpid(pid, &status, 0);
         error("Game Closed! launcher closing soon");
     }

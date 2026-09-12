@@ -30,8 +30,12 @@ if (WIN32)
 elseif (UNIX)
     find_package(ZLIB REQUIRED)
     find_package(OpenSSL REQUIRED)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
     target_link_libraries(${PROJECT_NAME} PRIVATE
-            ZLIB::ZLIB OpenSSL::SSL OpenSSL::Crypto CURL::libcurl)
+            ZLIB::ZLIB OpenSSL::SSL OpenSSL::Crypto CURL::libcurl ${GTK3_LIBRARIES})
+    target_include_directories(${PROJECT_NAME} PRIVATE ${GTK3_INCLUDE_DIRS})
+    target_compile_options(${PROJECT_NAME} PRIVATE ${GTK3_CFLAGS_OTHER})
 else(WIN32) #MINGW
     add_definitions("-D_WIN32_WINNT=0x0600")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os -s --static")
@@ -39,3 +43,32 @@ else(WIN32) #MINGW
 endif(WIN32)
 target_include_directories(${PROJECT_NAME} PRIVATE "include")
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
+
+# GResource compilation (Linux only) — embeds icons into the binary at build time
+if (UNIX AND NOT APPLE)
+    find_program(GLIB_COMPILE_RESOURCES glib-compile-resources REQUIRED)
+    set(GRESOURCE_C ${CMAKE_CURRENT_BINARY_DIR}/resources.c)
+    add_custom_command(
+        OUTPUT  ${GRESOURCE_C}
+        COMMAND ${GLIB_COMPILE_RESOURCES}
+                --target=${GRESOURCE_C}
+                --generate-source
+                --sourcedir=${CMAKE_CURRENT_SOURCE_DIR}
+                ${CMAKE_CURRENT_SOURCE_DIR}/data/resources.gresource.xml
+        DEPENDS
+                ${CMAKE_CURRENT_SOURCE_DIR}/data/resources.gresource.xml
+                ${CMAKE_CURRENT_SOURCE_DIR}/assets/beamng-logo.svg
+                ${CMAKE_CURRENT_SOURCE_DIR}/assets/beammp-logo.png
+        VERBATIM)
+    target_sources(${PROJECT_NAME} PRIVATE ${GRESOURCE_C})
+
+    install(FILES data/com.beammp.Launcher.desktop
+        DESTINATION share/applications)
+    # Scalable SVG icon for the app menu / .desktop Icon field
+    install(FILES data/com.beammp.Launcher.svg
+        DESTINATION share/icons/hicolor/scalable/apps)
+    # Official BeamMP PNG icon for taskbar/compositor icon resolution
+    install(FILES assets/beammp-logo.png
+        DESTINATION share/icons/hicolor/256x256/apps
+        RENAME com.beammp.Launcher.png)
+endif()

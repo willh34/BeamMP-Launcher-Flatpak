@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/com/beammp/Launcher">
+    <!-- Official BeamNG.drive logo (orange molecular/circles design) -->
+    <file alias="beamng-logo.svg">assets/beamng-logo.svg</file>
+    <!-- Official BeamMP logo -->
+    <file alias="beammp-logo.png">assets/beammp-logo.png</file>
+  </gresource>
+</gresources>
