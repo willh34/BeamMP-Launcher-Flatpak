@@ -1,6 +1,6 @@
 # BeamMP-Launcher
 
-The launcher is the way we communitcate to outside the game, it does a few automated actions such as but not limited to: downloading the mod, launching the game, and create a connection to a server.
+Flatpak builds for BeamMP. Mostly vibecoded (although I understand what it's writing.) Needs a little polish but works great and way better than setting up the official Linux build.
 
 ## [Getting started](https://docs.beammp.com/game/getting-started/)
 
