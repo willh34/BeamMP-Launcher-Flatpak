@@ -50,18 +50,11 @@ static gboolean cb_set_progress(gpointer data) {
     if (!s_progress_bar) { delete u; return G_SOURCE_REMOVE; }
 
     if (u->fraction >= 0.0) {
-        if (s_pulse_source) { g_source_remove(s_pulse_source); s_pulse_source = 0; }
         gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(s_progress_bar), u->fraction);
-    } else if (!s_pulse_source) {
-        s_pulse_source = g_timeout_add(30, +[](gpointer) -> gboolean {
-            if (s_progress_bar) {
-                double frac = gtk_progress_bar_get_fraction(GTK_PROGRESS_BAR(s_progress_bar));
-                frac += 0.02;
-                if (frac > 1.0) frac = 0.0;
-                gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(s_progress_bar), frac);
-            }
-            return G_SOURCE_CONTINUE;
-        }, nullptr);
+        gtk_style_context_remove_class(gtk_widget_get_style_context(s_progress_bar), "bmp-pulse");
+    } else {
+        gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(s_progress_bar), 1.0);
+        gtk_style_context_add_class(gtk_widget_get_style_context(s_progress_bar), "bmp-pulse");
     }
     delete u;
     return G_SOURCE_REMOVE;
@@ -115,9 +108,15 @@ static gboolean cb_show_error(gpointer data) {
 static gboolean cb_show_running_indicator(gpointer) {
     if (s_window) gtk_widget_hide(s_window);
 
-    s_tray_icon = app_indicator_new("com.beammp.Launcher",
-                                    "com.beammp.Launcher",
-                                    APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
+    if (access("/app/share/icons/hicolor/512x512/apps/com.beammp.Launcher.png", F_OK) == 0) {
+        s_tray_icon = app_indicator_new("com.beammp.Launcher",
+                                        "/app/share/icons/hicolor/512x512/apps/com.beammp.Launcher.png",
+                                        APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
+    } else {
+        s_tray_icon = app_indicator_new("com.beammp.Launcher",
+                                        "com.beammp.Launcher",
+                                        APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
+    }
     app_indicator_set_status(s_tray_icon, APP_INDICATOR_STATUS_ACTIVE);
 
     GtkWidget* menu = gtk_menu_new();
@@ -145,22 +144,17 @@ static void on_activate(GtkApplication* app, gpointer user_data) {
     gtk_window_set_title(GTK_WINDOW(s_window), "BeamMP Launcher");
     gtk_window_set_resizable(GTK_WINDOW(s_window), FALSE);
     gtk_window_set_default_size(GTK_WINDOW(s_window), 440, 120);
-    GError* err = nullptr;
-    GdkPixbuf* pb = gdk_pixbuf_new_from_resource("/com/beammp/Launcher/launcher-icon.png", &err);
-    if (pb) {
-        gtk_window_set_icon(GTK_WINDOW(s_window), pb);
-        g_object_unref(pb);
-    } else {
-        gtk_window_set_icon_name(GTK_WINDOW(s_window), "com.beammp.Launcher");
-    }
+    gtk_window_set_icon_name(GTK_WINDOW(s_window), "com.beammp.Launcher");
     g_signal_connect(s_window, "delete-event", G_CALLBACK(+[](GtkWidget*, GdkEvent*, gpointer) -> gboolean { return TRUE; }), nullptr);
 
     GtkCssProvider* css = gtk_css_provider_new();
     gtk_css_provider_load_from_data(css,
+        "@keyframes slide { from { background-position: 0% 0; } to { background-position: 100% 0; } } "
         "window { background-color: #181818; } "
         ".bmp-status { color: #eeeeee; font-size: 11pt; font-weight: bold; } "
         ".bmp-progress trough { background-color: #333333; border-radius: 4px; min-height: 8px; } "
-        ".bmp-progress progress { background-color: #f26d21; border-radius: 4px; }", -1, nullptr);
+        ".bmp-progress progress { background-color: #f26d21; border-radius: 4px; transition: none; } "
+        ".bmp-pulse progress { background-image: linear-gradient(45deg, #f26d21 25%, #e06b20 25%, #e06b20 50%, #f26d21 50%, #f26d21 75%, #e06b20 75%, #e06b20 100%); background-size: 20px 20px; animation: slide 1s linear infinite; }", -1, nullptr);
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(), GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
     g_object_unref(css);
 
@@ -187,16 +181,6 @@ static void on_activate(GtkApplication* app, gpointer user_data) {
     gtk_style_context_add_class(gtk_widget_get_style_context(s_progress_bar), "bmp-progress");
     gtk_box_pack_start(GTK_BOX(right), s_progress_bar, FALSE, FALSE, 0);
 
-    s_pulse_source = g_timeout_add(30, +[](gpointer) -> gboolean {
-        if (s_progress_bar) {
-            double frac = gtk_progress_bar_get_fraction(GTK_PROGRESS_BAR(s_progress_bar));
-            frac += 0.02;
-            if (frac > 1.0) frac = 0.0;
-            gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(s_progress_bar), frac);
-        }
-        return G_SOURCE_CONTINUE;
-    }, nullptr);
-
     gtk_widget_show_all(s_window);
 
     auto* fn = static_cast<std::function<void()>*>(user_data);
@@ -208,6 +192,7 @@ namespace Gui {
     void Run(int, const char**, std::function<void()> work) {
         if (!g_getenv("DISPLAY") && !g_getenv("WAYLAND_DISPLAY")) { work(); return; }
         s_enabled.store(true, std::memory_order_relaxed);
+        g_set_prgname("com.beammp.Launcher");
         GtkApplication* app = gtk_application_new("com.beammp.Launcher", G_APPLICATION_DEFAULT_FLAGS);
         g_signal_connect(app, "activate", G_CALLBACK(on_activate), new std::function<void()>(std::move(work)));
         g_application_run(G_APPLICATION(app), 0, nullptr);
