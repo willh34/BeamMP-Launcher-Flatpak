@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=BeamMP Launcher
+GenericName=Multiplayer Mod Launcher
+Comment=Multiplayer mod launcher for BeamNG.drive
+Exec=BeamMP-Launcher
+Icon=com.beammp.Launcher
+Terminal=false
+Categories=Game;
+Keywords=BeamMP;BeamNG;multiplayer;racing;mods;
+StartupWMClass=com.beammp.Launcher
