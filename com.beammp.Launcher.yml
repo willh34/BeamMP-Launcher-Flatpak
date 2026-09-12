@@ -18,6 +18,11 @@ finish-args:
   # giving it access to the Steam runtime environment.
   - --socket=session-bus
   - --talk-name=org.freedesktop.Flatpak
+  # Display access for the GTK4 status window.
+  - --socket=wayland
+  - --socket=x11
+  - --share=ipc
+  - --device=dri
 
 modules:
   # nlohmann/json — header-only; built here so its cmake config is available

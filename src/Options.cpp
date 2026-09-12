@@ -81,6 +81,8 @@ void InitOptions(int argc, const char *argv[], Options &options) {
             options.no_update = true;
         } else if (argument == "--no-launch") {
             options.no_launch = true;
+        } else if (argument == "--no-gui") {
+            options.no_gui = true;
         } else if (argument == "--dev") {
             options.verbose = true;
             options.no_download = true;
@@ -109,6 +111,9 @@ void InitOptions(int argc, const char *argv[], Options &options) {
                 "\t--dev                Developer mode, same as --verbose --no-download --no-launch --no-update\n"
                 "\t--user-path <path>   Path to BeamNG's User Path\n"
                 "\t--game <args...>     Passes ALL following arguments to the game, see also `--`\n"
+#if defined(__linux__)
+                "\t--no-gui             Run without the graphical status window\n"
+#endif
                 << std::flush;
             exit(0);
         } else {
