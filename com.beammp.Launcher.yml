@@ -50,6 +50,8 @@ modules:
         url: https://github.com/yhirose/cpp-httplib/archive/refs/tags/v0.18.5.tar.gz
         sha256: 731190e97acd63edce57cc3dacd496f57e7743bfc7933da7137cb3e93ec6c9a0
 
+  - flatpak-modules/shared-modules/libappindicator/libappindicator-gtk3-12.10.json
+
   - name: BeamMP-Launcher
     buildsystem: cmake-ninja
     config-opts:

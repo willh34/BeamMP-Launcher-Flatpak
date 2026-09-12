@@ -10,6 +10,7 @@
 #include "Logger.h"
 
 #include <gtk/gtk.h>
+#include <libappindicator/app-indicator.h>
 
 #include <atomic>
 #include <condition_variable>
@@ -27,7 +28,7 @@ static GtkApplication* s_app          = nullptr;
 static GtkWidget*      s_window       = nullptr;
 static GtkWidget*      s_status_label = nullptr;
 static GtkWidget*      s_progress_bar = nullptr;
-static GtkStatusIcon*  s_tray_icon    = nullptr;
+static AppIndicator*   s_tray_icon    = nullptr;
 static guint           s_pulse_source = 0;
 static std::atomic<bool> s_enabled { false };
 
@@ -52,8 +53,13 @@ static gboolean cb_set_progress(gpointer data) {
         if (s_pulse_source) { g_source_remove(s_pulse_source); s_pulse_source = 0; }
         gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(s_progress_bar), u->fraction);
     } else if (!s_pulse_source) {
-        s_pulse_source = g_timeout_add(80, +[](gpointer) -> gboolean {
-            if (s_progress_bar) gtk_progress_bar_pulse(GTK_PROGRESS_BAR(s_progress_bar));
+        s_pulse_source = g_timeout_add(30, +[](gpointer) -> gboolean {
+            if (s_progress_bar) {
+                double frac = gtk_progress_bar_get_fraction(GTK_PROGRESS_BAR(s_progress_bar));
+                frac += 0.02;
+                if (frac > 1.0) frac = 0.0;
+                gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(s_progress_bar), frac);
+            }
             return G_SOURCE_CONTINUE;
         }, nullptr);
     }
@@ -106,7 +112,14 @@ static gboolean cb_show_error(gpointer data) {
 // Tray Icon
 // ---------------------------------------------------------------------------
 
-static void cb_tray_popup(GtkStatusIcon* /*status_icon*/, guint button, guint activate_time, gpointer) {
+static gboolean cb_show_running_indicator(gpointer) {
+    if (s_window) gtk_widget_hide(s_window);
+
+    s_tray_icon = app_indicator_new("com.beammp.Launcher",
+                                    "com.beammp.Launcher",
+                                    APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
+    app_indicator_set_status(s_tray_icon, APP_INDICATOR_STATUS_ACTIVE);
+
     GtkWidget* menu = gtk_menu_new();
     GtkWidget* quit_item = gtk_menu_item_new_with_label("Quit BeamMP");
     g_signal_connect(quit_item, "activate", G_CALLBACK(+[](GtkMenuItem*, gpointer) {
@@ -117,29 +130,7 @@ static void cb_tray_popup(GtkStatusIcon* /*status_icon*/, guint button, guint ac
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), quit_item);
     gtk_widget_show_all(menu);
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    gtk_menu_popup(GTK_MENU(menu), nullptr, nullptr, gtk_status_icon_position_menu,
-                   s_tray_icon, button, activate_time);
-#pragma GCC diagnostic pop
-}
-
-static gboolean cb_show_running_indicator(gpointer) {
-    if (s_window) gtk_widget_hide(s_window);
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    GError* err = nullptr;
-    GdkPixbuf* pb = gdk_pixbuf_new_from_resource("/com/beammp/Launcher/launcher-icon.png", &err);
-    if (pb) {
-        s_tray_icon = gtk_status_icon_new_from_pixbuf(pb);
-        g_object_unref(pb);
-    } else {
-        s_tray_icon = gtk_status_icon_new_from_icon_name("com.beammp.Launcher");
-    }
-    gtk_status_icon_set_tooltip_text(s_tray_icon, "BeamMP Launcher");
-    g_signal_connect(s_tray_icon, "popup-menu", G_CALLBACK(cb_tray_popup), nullptr);
-#pragma GCC diagnostic pop
+    app_indicator_set_menu(s_tray_icon, GTK_MENU(menu));
 
     return G_SOURCE_REMOVE;
 }
@@ -196,8 +187,13 @@ static void on_activate(GtkApplication* app, gpointer user_data) {
     gtk_style_context_add_class(gtk_widget_get_style_context(s_progress_bar), "bmp-progress");
     gtk_box_pack_start(GTK_BOX(right), s_progress_bar, FALSE, FALSE, 0);
 
-    s_pulse_source = g_timeout_add(80, +[](gpointer) -> gboolean {
-        if (s_progress_bar) gtk_progress_bar_pulse(GTK_PROGRESS_BAR(s_progress_bar));
+    s_pulse_source = g_timeout_add(30, +[](gpointer) -> gboolean {
+        if (s_progress_bar) {
+            double frac = gtk_progress_bar_get_fraction(GTK_PROGRESS_BAR(s_progress_bar));
+            frac += 0.02;
+            if (frac > 1.0) frac = 0.0;
+            gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(s_progress_bar), frac);
+        }
         return G_SOURCE_CONTINUE;
     }, nullptr);
 

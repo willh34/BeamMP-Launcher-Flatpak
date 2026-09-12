@@ -1,3 +1,6 @@
 [submodule "evpp"]
 	path = evpp
 	url = https://github.com/BeamMP/evpp.git
+[submodule "flatpak-modules/shared-modules"]
+	path = flatpak-modules/shared-modules
+	url = https://github.com/flathub/shared-modules.git
