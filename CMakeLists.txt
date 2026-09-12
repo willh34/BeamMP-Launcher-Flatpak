@@ -67,8 +67,5 @@ if (UNIX AND NOT APPLE)
     # Scalable SVG icon for the app menu / .desktop Icon field
     install(FILES data/com.beammp.Launcher.svg
         DESTINATION share/icons/hicolor/scalable/apps)
-    # Official BeamMP PNG icon for taskbar/compositor icon resolution
-    install(FILES assets/beammp-logo.png
-        DESTINATION share/icons/hicolor/256x256/apps
-        RENAME com.beammp.Launcher.png)
+
 endif()

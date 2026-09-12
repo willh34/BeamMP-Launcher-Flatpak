@@ -157,7 +157,7 @@ void ReLaunch() {
         Arg += " ";
     }
     info("Relaunch!");
-    system("clear");
+    if (system("clear")) {}
     int ret = execv((GetBP() / GetEN()).c_str(), const_cast<char**>(options.argv));
     if (ret < 0) {
         error(std::string("execv() failed with: ") + strerror(errno) + ". Failed to relaunch");
